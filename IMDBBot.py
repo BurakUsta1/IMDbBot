@@ -1,3 +1,4 @@
+from curses.ascii import isalnum
 import os,csv
 from selenium.webdriver.common.keys import Keys
 from selenium import webdriver
@@ -21,7 +22,7 @@ class ımdb:
            
     def MakeCSV(self,fileName):
         #Save the CSV file to the location where IMDBBot runs.
-        columnTittle=["IMDb Rating","Title Type","Your Rating","Date Rated","Director","Release Year"]
+        columnTittle=["Title","Title Type","IMDb Rating","RateCount","Your Rating","Date Rated","Director","ReleaseYear","Runtime","Link"]
         self.fileName=fileName
         print("\nCreating "+'\033[93m'+self.fileName+'\033[97m'+" file...\n")
         self.script_directory = os.path.dirname(os.path.abspath(__file__))
@@ -32,11 +33,13 @@ class ımdb:
 
     def RatingList(self):
 
-        #Total number of ratings
-        RatingCount= WebDriverWait(self.browser, 5).until(EC.presence_of_element_located((By.XPATH,"/html/body/div[2]/main/div/section/div/section/div/div[1]/section/div[1]/div[1]"))).text
-        print("\n"+RatingCount[:5]+"entry found.\n\nEntry are being prepared...")
-        lis = self.browser.find_elements(By.CLASS_NAME,"ipc-metadata-list-summary-item")
-        
+        #Total number of ratings 
+        try:                           
+            RatingCount= WebDriverWait(self.browser, 5).until(EC.presence_of_element_located((By.XPATH,"/html/body/div[2]/main/div/section/div/section/div/div[1]/section/div[1]/ul/li"))).text
+            print("\n"+RatingCount [:5] +"entry found.\n\nEntry are being prepared...")
+            lis = self.browser.find_elements(By.CLASS_NAME,"ipc-metadata-list-summary-item")
+        except TimeoutException:
+            print("Zaman aşımına uğradı, sayfa beklenen şekilde yüklenmedi.")
         #Pull the slider down until the entire rating list is created.
         while int(RatingCount[:4]) != len (lis):
             self.browser.execute_script("window.scrollTo(0, document.body.scrollHeight * 0.98);")
@@ -64,23 +67,32 @@ class ımdb:
                 except:
                     IMDbRating=" "
                 try:
+                    Count = item.find_element(By.CLASS_NAME, "ipc-rating-star--voteCount").text
+                    RateCount = Count.replace("(", "").replace(")", "")
+                except:
+                    RateCount=" "
+                try:
                     YourRating = item.find_elements(By.CLASS_NAME, "ipc-rating-star--rating")[1].text
                 except:
                     YourRating=" "
                 try:
-                    DateRated= item.find_element(By.CSS_SELECTOR, ".sc-5bc66c50-9.ekmeXq.dli-user-list-item-date-added").text
+                    DateRated= item.find_element(By.CLASS_NAME, "sc-300a8231-10.bFZWGu.dli-user-list-item-date-added").text
                 except:
                     DateRated=" "
                 try:
-                    Director= item.find_element(By.CSS_SELECTOR,"span.sc-54004b59-5 a.ipc-link.ipc-link--base.dli-director-item").text
+                    Director= item.find_element(By.CLASS_NAME, "ipc-link.ipc-link--base.dli-director-item").text
                 except:
                     Director=" "
                 try:
-                    ReleaseYear=item.find_element(By.CLASS_NAME,"sc-5bc66c50-6.OOdsw.dli-title-metadata-item").text
+                    ReleaseYear=item.find_elements(By.CLASS_NAME,"sc-300a8231-7.eaXxft.dli-title-metadata-item")[0].text
                 except:
                     ReleaseYear=" "
                 try:
-                    TitleType=item.find_element(By.CLASS_NAME,"sc-5bc66c50-3.WQtNy.dli-title-type-data").text
+                    Runtime=item.find_elements(By.CLASS_NAME,"sc-300a8231-7.eaXxft.dli-title-metadata-item")[1].text
+                except:
+                    Runtime=" "
+                try:
+                    TitleType=item.find_element(By.CLASS_NAME,"sc-300a8231-4.gICisZ.dli-title-type-data").text
                 except:
                     TitleType="Movie"
                 try:
@@ -90,7 +102,7 @@ class ımdb:
 
                 #Write the data to CSV file
                 try:   
-                    row= [Title,TitleType,IMDbRating,YourRating,DateRated[9:],Director,ReleaseYear,Link]
+                    row= [Title,TitleType,IMDbRating,RateCount,YourRating,DateRated[9:],Director,ReleaseYear,Runtime,Link]
                     with open(self.csv_file_path, mode='a', newline='', encoding='utf-8') as file:
                         writer = csv.writer(file)
                         writer.writerow(row)
